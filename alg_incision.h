@@ -75,7 +75,7 @@ typedef struct _HOUGH_CIRCLE_PARAM_HP {
     Int32 searchStep;
     // counter number threshold to be regarded as a circle
     Int32 countThresh;
-} houghCleParamHp;
+} cleHParam;
 
 // Descriping the line found by Hough transform
 typedef struct _LINE_HP {
@@ -95,18 +95,12 @@ typedef struct _HOUGH_LINE_PARAM_HP {
     Int32 jEnd;
     // calculate by every "searchStep" image pixels
     Int32 searchStep;
-    // counter number threshold to be regarded as a circle
-    Int32 countThresh;
-} houghLineParamHp;
+} lineHParam;
 
 
 /*------------------------------------------------------------------------------
 Algorithm const variables
 ------------------------------------------------------------------------------*/
-// Distinguish the Hough transform for big cirlce and small circle
-#define HOUGH_FOR_BIG_CIRCLE 0
-#define HOUGH_FOR_SMALL_CIRCLE 1
-
 // Only search for big circle with radius at range of
 // (BIG_CIRCLE_MIN, BIG_CIRCLE_MAX)
 #define BIG_CIRCLE_R_MIN 94
@@ -126,6 +120,7 @@ Algorithm const variables
 // Search step for finding big circle and small circle
 #define BIG_SEARCH_STEP 1
 #define SMALL_SEARCH_STEP 1
+#define LINE_SEARCH_SETP 1
 
 // Border width of the big circle
 #define BIG_CIRCLE_WIDTH 4
@@ -138,11 +133,12 @@ Algorithm const variables
 #define H_X_SIZE 700
 #define H_Y_SIZE 500
 #define H_R2DIV_SIZE 40
+#define H_YR2DIV_SIZE  20000
 #define H_XYR2DIV_SIZE 14000000
-#define H_YR2DIV_SIZE  20000 // (H_Y_SIZE * H_R2DIV_SIZE)
 
 #define H_DIST_SIZE 1000
 #define H_SITA_SIZE 360
+#define H_DISTSITA_SIZE 360000
 
 
 /*------------------------------------------------------------------------------
@@ -222,7 +218,7 @@ Output:      NULL
 
 Returns:     NULL
 ----------------------------------------------------------------------------*/
-void initHoughParamForBigCle (Int32 width, Int32 height);
+void initHPForBigCle (Int32 width, Int32 height);
 
 
 /*----------------------------------------------------------------------------
@@ -234,7 +230,7 @@ Output:      NULL
 
 Returns:     NULL
 ----------------------------------------------------------------------------*/
-houghCleParamHp getBHParam ();
+cleHParam getBHParam ();
 
 
 /*----------------------------------------------------------------------------
@@ -247,7 +243,32 @@ Output:      NULL
 
 Returns:     NULL
 ----------------------------------------------------------------------------*/
-void initHoughParamForSmallCle (circleHp bigCle);
+void initHPForSmallCle (circleHp bigCle);
+
+
+/*----------------------------------------------------------------------------
+Description: Get the static big circle Hough parameter
+
+Input:       NULL
+
+Output:      NULL
+
+Returns:     NULL
+----------------------------------------------------------------------------*/
+cleHParam getSHParam ();
+
+
+/*----------------------------------------------------------------------------
+Description: Initialize the Hough parameters for finding the small circle
+             inside the biggest circle
+
+Input:       bigCle -- the biggest circle that has been found previously
+
+Output:      NULL
+
+Returns:     NULL
+----------------------------------------------------------------------------*/
+void initHPForLine (circleHp bigCle);
 
 
 /*----------------------------------------------------------------------------
@@ -259,7 +280,7 @@ Output:      NULL
 
 Returns:     NULL
 ----------------------------------------------------------------------------*/
-houghCleParamHp getSHParam ();
+lineHParam getLHParam ();
 
 
 /*----------------------------------------------------------------------------
@@ -288,9 +309,9 @@ Output:      circleHp -- information of the biggest circle that may be found
 
 Returns:     same as above
 ----------------------------------------------------------------------------*/
-circleHp houghTransFormForBigCle (UInt8* imageData,
-                                  Int32 width, Int32 height,
-                                  houghCleParamHp hParam);
+circleHp hTForBigCle (UInt8* imageData,
+                      Int32 width, Int32 height,
+                      cleHParam hParam);
 
 
 /*----------------------------------------------------------------------------
@@ -306,10 +327,10 @@ Output:      circleHp -- information of the biggest circle that may be found
 
 Returns:     same as above
 ----------------------------------------------------------------------------*/
-circleHp houghTransFormForSmallCle (UInt8* imageData,
-                                    Int32 width, Int32 height,
-                                    houghCleParamHp hParam,
-                                    circleHp bigCle);
+circleHp hTForSmallCle (UInt8* imageData,
+                        Int32 width, Int32 height,
+                        cleHParam hParam,
+                        circleHp bigCle);
 
 
 /*----------------------------------------------------------------------------
@@ -325,44 +346,14 @@ Output:      lineHp -- information of the string
 
 Returns:     same as above
 ----------------------------------------------------------------------------*/
-lineHp houghTransFormForLine (UInt8* imageData,
-                              Int32 width, Int32 height,
-                              houghLineParamHp hParam,
-                              circleHp bigCle);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+lineHp hTForLine (UInt8* imageData,
+                  Int32 width, Int32 height,
+                  lineHParam hParam);
 
 
 
 
 #endif // alg_incision.h
+
+/*-------------------------------- End of file -------------------------------*/
+

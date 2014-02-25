@@ -1,15 +1,17 @@
 #include "alg_incision.h"
 
-
-
 // Global H array for storing Hough transform counts
 static Int32 H_CIRCLE_ARRAY[H_X_SIZE][H_Y_SIZE][H_R2DIV_SIZE] = {{{0}}};
 static Int32 H_LINE_ARRAY[H_SITA_SIZE][H_DIST_SIZE] = {{0}};
 
-// Global Hough parameter for big & small circle
-static houghCleParamHp bHParam;
-static houghCleParamHp sHParam;
+// Tables
+extern const Int32 sinValue[H_SITA_SIZE];
+extern const Int32 cosValue[H_SITA_SIZE];
 
+// Global Hough parameter for big & small circle
+static cleHParam  bHParam;
+static cleHParam  sHParam;
+static lineHParam lHParam;
 
 
 void sobel (UInt8* imageData, Int32 width, Int32 height) {
@@ -23,7 +25,6 @@ void sobel (UInt8* imageData, Int32 width, Int32 height) {
     UInt8* pI10;              UInt8* pI12;
     UInt8* pI20; UInt8* pI21; UInt8* pI22;
 
-    Int32 w = width;
     Int32 fullSize = width * height;
     Int32 tranSize = width * (height - 2) - 2;
 
@@ -42,9 +43,9 @@ void sobel (UInt8* imageData, Int32 width, Int32 height) {
     in = in - fullSize;
 
     // Init 8-neighbour pointers
-    pI00 = in;          pI01 = in+1;        pI02 = in+2;
-    pI10 = in+w;                            pI12 = in+2+w;
-    pI20 = in+2*w;      pI21 = in+1+2*w;    pI22 = in+2+2*w;
+    pI00 = in;              pI01 = in+1;            pI02 = in+2;
+    pI10 = in+width;                                pI12 = in+2+width;
+    pI20 = in+2*width;      pI21 = in+1+2*width;    pI22 = in+2+2*width;
 
     // Iterate over entire image as a single, continuous raster line.
     for (i = 0; i < tranSize; ++i)
@@ -71,7 +72,7 @@ void sobel (UInt8* imageData, Int32 width, Int32 height) {
         if (O > 255) O = 255;
 
         // Store it.
-        out[i + 1 + w] = O;
+        out[i + 1 + width] = O;
     }
 
     // free intermediate copy image
@@ -90,7 +91,6 @@ void meanBinary (UInt8* imageData, Int32 width, Int32 height) {
     UInt8* pI10; UInt8* pI11; UInt8* pI12;
     UInt8* pI20; UInt8* pI21; UInt8* pI22;
 
-    Int32 w = width;
     Int32 fullSize = width * height;
     Int32 tranSize = width * (height - 2) - 2;
 
@@ -105,13 +105,16 @@ void meanBinary (UInt8* imageData, Int32 width, Int32 height) {
     }
     for (i = 0; i < fullSize; ++i) {
         *in++ = *imageData++;
+        if (i < width || i > (tranSize + width) || i % width > 650) {
+            *imageData = 0;
+        }
     }
     in = in - fullSize;
 
     // Init 8-neighbour pointers
-    pI00 = in;          pI01 = in+1;        pI02 = in+2;
-    pI10 = in+w;        pI11 = in+1+w;      pI12 = in+2+w;
-    pI20 = in+2*w;      pI21 = in+1+2*w;    pI22 = in+2+2*w;
+    pI00 = in;              pI01 = in+1;            pI02 = in+2;
+    pI10 = in+width;        pI11 = in+1+width;      pI12 = in+2+width;
+    pI20 = in+2*width;      pI21 = in+1+2*width;    pI22 = in+2+2*width;
 
     // Iterate over entire image as a single, continuous raster line.
     for (i = 0; i < tranSize; ++i)
@@ -120,11 +123,6 @@ void meanBinary (UInt8* imageData, Int32 width, Int32 height) {
         i00 = *pI00++;    i01 = *pI01++;    i02 = *pI02++;
         i10 = *pI10++;    i11 = *pI11++;    i12 = *pI12++;
         i20 = *pI20++;    i21 = *pI21++;    i22 = *pI22++;
-
-        if (i % w > 650) {
-            out[i] = 0;
-            continue;
-        }
 
         // Calculate the 8-neighbour pixel value sum, include itself
         sum = i00 + i01 + i02 +
@@ -139,7 +137,7 @@ void meanBinary (UInt8* imageData, Int32 width, Int32 height) {
             sum = 255;
 
         // Store it.
-        out[i + 1 + w] = sum;
+        out[i + 1 + width] = sum;
     }
 
     // free intermediate copy image
@@ -147,7 +145,7 @@ void meanBinary (UInt8* imageData, Int32 width, Int32 height) {
 }
 
 
-void initHoughParamForBigCle (Int32 width, Int32 height){
+void initHPForBigCle (Int32 width, Int32 height){
     bHParam.xStart = BIG_CIRCLE_R_MIN;
     bHParam.xEnd = width - BIG_CIRCLE_R_MIN;
     bHParam.yStart = BIG_CIRCLE_R_MIN;
@@ -161,12 +159,12 @@ void initHoughParamForBigCle (Int32 width, Int32 height){
 }
 
 
-houghCleParamHp getBHParam () {
+cleHParam getBHParam () {
     return bHParam;
 }
 
 
-void initHoughParamForSmallCle (circleHp bigCle) {
+void initHPForSmallCle (circleHp bigCle) {
     if (bigCle.hasValue) {
         sHParam.xStart = bigCle.x - bigCle.r + SMALL_CIRCLE_R_MIN;
         sHParam.xEnd = bigCle.x + bigCle.r - SMALL_CIRCLE_R_MIN;
@@ -185,8 +183,22 @@ void initHoughParamForSmallCle (circleHp bigCle) {
 }
 
 
-houghCleParamHp getSHParam () {
+cleHParam getSHParam () {
     return sHParam;
+}
+
+
+void initHPForLine (circleHp bigCle) {
+    lHParam.iStart      = bigCle.x - bigCle.r;
+    lHParam.iEnd        = bigCle.x + bigCle.r;
+    lHParam.jStart      = bigCle.y - bigCle.r;
+    lHParam.jEnd        = bigCle.y + bigCle.r;
+    lHParam.searchStep  = LINE_SEARCH_SETP;
+}
+
+
+lineHParam getLHParam () {
+    return lHParam;
 }
 
 
@@ -199,9 +211,9 @@ void clearArray (void* array, Int32 size) {
 }
 
 
-circleHp houghTransFormForBigCle(UInt8* imageData,
-                                 Int32 width, Int32 height,
-                                 houghCleParamHp hParam) {
+circleHp hTForBigCle(UInt8* imageData,
+                     Int32 width, Int32 height,
+                     cleHParam hParam) {
     // Iterators
     Int32 i,j,x,y;   // i -- x, j -- y
 
@@ -239,13 +251,13 @@ circleHp houghTransFormForBigCle(UInt8* imageData,
     // Initialize circle variable
     circleHp cle = {0,0,0,0,False};
 
-    // Initialize H_ARRAY
+    // Initialize H_CIRCLE_ARRAY
     clearArray (H_CIRCLE_ARRAY, H_XYR2DIV_SIZE);
 
     // Start algorithm
     for (i = iMin; i < iMax; i += step) {
         for (j = jMin; j < jMax; ++j) {
-            if (*(imageData + j * width + i)) {
+            if (*(imageData + j * width + i) == 255) {
                 // current cicle center range
                 xStartTmp = i - rMax;
                 xEndTmp = i + rMax;
@@ -314,10 +326,10 @@ circleHp houghTransFormForBigCle(UInt8* imageData,
 }
 
 
-circleHp houghTransFormForSmallCle(UInt8* imageData,
-                                   Int32 width, Int32 height,
-                                   houghCleParamHp hParam,
-                                   circleHp bigCle) {
+circleHp hTForSmallCle(UInt8* imgData,
+                       Int32 width, Int32 height,
+                       cleHParam hParam,
+                       circleHp bigCle) {
     // Iterators
     Int32 i,j,x,y;   // i -- x, j -- y
 
@@ -360,13 +372,13 @@ circleHp houghTransFormForSmallCle(UInt8* imageData,
     // Initialize circle variable
     circleHp cle = {0,0,0,0,False};
 
-    // Initialize H_ARRAY
+    // Initialize H_CIRCLE_ARRAY
     clearArray (H_CIRCLE_ARRAY, H_XYR2DIV_SIZE);
 
     // Start algorithm
     for (i = iMin; i < iMax; i += step) {
         for (j = jMin; j < jMax; ++j) {
-            if (*(imageData + j * width + i)) {
+            if (*(imgData + j * width + i)) {
                 // exclude the border & near border pixels
                 xDist = i - bigCle.x;
                 yDist = j - bigCle.y;
@@ -442,11 +454,61 @@ circleHp houghTransFormForSmallCle(UInt8* imageData,
 }
 
 
-lineHp houghTransFormForLine (UInt8* imageData,
-                              Int32 width, Int32 height,
-                              houghLineParamHp hParam,
-                              circleHp bigCle) {
-    lineHp line;
+lineHp hTForLine (UInt8* imgData, Int32 width, Int32 height, lineHParam hParam) {
+    Int32 i,j,x,y;
+    Int32 sita,dist,count,num;
+    Int32 maxCount = 0;
+
+    Int32 fullSize = width * height;
+    Int32* hLineArray = (Int32*) H_LINE_ARRAY;
+    Int32 step = hParam.searchStep;
+    UInt8* head = imgData;
+
+    lineHp line = {0, 0, False};
+
+    // Initialize H_LINE_ARRAY
+    clearArray (H_LINE_ARRAY, H_DISTSITA_SIZE);
+
+    // Hough transform
+    for (i = 0; i < fullSize; i+= step) {
+        if (!*head++) continue;
+
+        x = i % width;  y = i / width;
+
+        for (sita = 0; sita < H_SITA_SIZE; ++sita) {
+            dist = (x * cosValue[sita] + y * sinValue[sita]) >> 10;
+
+            if (dist > 0 && dist < H_DIST_SIZE)
+                H_LINE_ARRAY[sita][dist]++;
+        }
+    }
+    head = imgData;
+
+
+    // Find the line
+    for (i = 0; i < H_DISTSITA_SIZE; ++i) {
+        count = *hLineArray++;
+        if (count > maxCount) {
+            maxCount = count;
+            num = i;
+        }
+    }
+    line.dist = num % H_DIST_SIZE;
+    line.sita = num / H_DIST_SIZE;
+    line.hasValue = True;
+
+    dist = line.dist;
+    sita = line.sita;
+    for (i = 0; i < width; ++i) {
+        for (j = 0; j < height; ++j) {
+            if (((i*cosValue[sita] + j*sinValue[sita]) >> 10) == dist) {
+                *(head + j*width + i) = 255;
+            }
+        }
+    }
+
+    printf ("Step is %d\n", step);
+    printf ("Count number is %d\n", maxCount);
 
     return line;
 }

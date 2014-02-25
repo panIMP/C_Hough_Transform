@@ -5,7 +5,8 @@ CONFIG -= qt
 
 SOURCES += \
     alg_incision.c \
-    main.c
+    main.c \
+    table_trig.c
 
 HEADERS += \
     alg_incision.h
